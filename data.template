@@ -1,0 +1,103 @@
+package {{ .Package }}
+
+import (
+    "fmt"
+    "github.com/zpatrick/go-simple-data/store"
+)
+
+type {{ .Type }}Data struct {
+    table string
+    store store.Store
+}
+
+func New{{ .Type }}Data(store store.Store) *{{ .Type }}Data {
+    return &{{ .Type }}Data{
+        table: "{{ .Package }}_{{ .Type }}",
+        store: store,
+    }
+}
+
+func (this *{{ .Type }}Data) Init() error {
+    return this.store.Init(this.table)
+}
+
+type {{ .Type }}DataCreate struct {
+    store store.Store
+    data  {{ .Type }}
+}
+
+func (this *{{ .Type }}Data) Create(data {{ .Type }}) *{{ .Type }}DataCreate {
+    return &{{ .Type }}DataCreate{
+        store: this.store,
+        data:  data,
+    }
+}
+
+func (this *{{ .Type }}DataCreate) Execute() error {
+    return this.store.Insert(this.table, this.data.{{ .PrimaryKey }}, this.data)
+}
+
+type {{ .Type }}DataSelect struct {
+    store  store.Store
+    filter {{ .Type }}Filter
+}
+
+func (this *{{ .Type }}Data) Select() *{{ .Type }}DataSelect {
+    return &{{ .Type }}DataSelect{
+        store: this.store,
+    }
+}
+
+type {{ .Type }}Filter func({{ .Type }}) bool
+
+func (this *{{ .Type }}DataSelect) Where(filter {{ .Type }}Filter) *{{ .Type }}DataSelect {
+    this.filter = filter
+    return this
+}
+
+func (this *{{ .Type }}DataSelect) Execute() ([]{{ .Type }}, error) {
+    results := []{{ .Type }}{}
+
+    data, err := this.store.Select(this.table)
+    if err != nil {
+        return nil, err
+    }
+
+    for _, d := range data {
+        if v, ok := d.({{ .Type }}); ok {
+            results = append(results, v)
+        } else {
+            return nil, fmt.Errorf("Failed to convert '%v' to type '{{ .Type }}'", v)
+        }
+    }
+
+    if this.filter != nil {
+        filtered := []{{ .Type }}{}
+
+        for _, result := range results {
+            if this.filter(result) {
+                filtered = append(filtered, result)
+            }
+        }
+
+        results = filtered
+    }
+
+    return results, nil
+}
+
+type {{ .Type }}DataDelete struct {
+    store store.Store
+    data  {{ .Type }}
+}
+
+func (this *{{ .Type }}Data) Delete(data {{ .Type }}) *{{ .Type }}DataDelete {
+    return &{{ .Type }}DataDelete{
+        store: this.store,
+        data:  data,
+    }
+}
+
+func (this *{{ .Type }}DataDelete) Execute() error {
+    return this.store.Delete(this.table, this.data.{{ .PrimaryKey }})
+}
