@@ -5,20 +5,12 @@ import (
 	"github.com/jawher/mow.cli"
 	"github.com/zpatrick/go-parser"
 	"os"
+	"strings"
 	"text/template"
 )
 
-/*
-	TODO:
-	- use byte string variable for default template: https://github.com/codegangsta/cli/blob/cffab77ecb4f963ced9e30344eb2b9282ef36887/help.go#L12
-	- rename a bunch of stuff. <type>Data sucks - it represeings the business logic layer. The store layers is properly named. What woudl i want?
-		- Options: UserData.Select(), UserLogic, UserBL, data access layer(DAL) UserDAL, object relational mapping , UserStore.Select(), User
-		- maybe use a store metaphor? Warehouse, retail, outlet, factory, supplier
-	- give json store
-*/
-
 type Specs struct {
-	Input    *string
+	Path     *string
 	Struct   *string
 	Output   *string
 	Package  *string
@@ -34,13 +26,13 @@ type TemplateContext struct {
 func main() {
 	Specs := Specs{}
 	app := cli.App("sdata", "Data persistance made simple")
-	Specs.Input = app.StringOpt("i input", "", "Path to the source file")
-	Specs.Struct = app.StringOpt("s struct", "", "Name of the source struct")
+	Specs.Path = app.StringArg("PATH", "", "Path to the source file")
+	Specs.Struct = app.StringArg("STRUCT", "", "Name of the source struct")
 	Specs.Output = app.StringOpt("o output", "stdout", "Path to the destination file")
 	Specs.Package = app.StringOpt("p package", "", "Package name for the destination file")
-	Specs.Template = app.StringOpt("t template", "data.template", "Path to the template file")
+	Specs.Template = app.StringOpt("t template", "", "Path to the template file")
 
-	app.Spec = "--input --struct [--output] [--package] [--template]"
+	app.Spec = "PATH STRUCT [--output] [--package] [--template]"
 
 	app.Action = func() {
 		if err := Generate(Specs); err != nil {
@@ -53,7 +45,7 @@ func main() {
 }
 
 func Generate(specs Specs) error {
-	goFile, err := parser.ParseFile(*specs.Input)
+	goFile, err := parser.ParseFile(*specs.Path)
 	if err != nil {
 		return err
 	}
@@ -63,7 +55,7 @@ func Generate(specs Specs) error {
 	}
 
 	if specs.Package == nil {
-		*specs.Package = goFile.Package
+		specs.Package = &goFile.Package
 	}
 
 	var target *parser.GoStruct
@@ -87,10 +79,15 @@ func Generate(specs Specs) error {
 }
 
 func findPrimaryKey(target *parser.GoStruct) (*parser.GoField, error) {
-	var fields []*parser.GoField
+	fields := []*parser.GoField{}
 
 	for _, field := range target.Fields {
-		if tag := field.Tag.Get("sdata"); tag == "primary_key" {
+		if field.Tag == nil {
+			continue
+		}
+
+		// if tag := field.Tag.Get("data"); tag == "primary_key" {
+		if strings.Contains(field.Tag.Value, "data:\"primary_key\"") {
 			if field.Type != "string" {
 				return nil, fmt.Errorf("The primary key field must be of type \"string\"")
 			}
@@ -112,12 +109,17 @@ func findPrimaryKey(target *parser.GoStruct) (*parser.GoField, error) {
 }
 
 func writeDataFile(specs Specs, target *parser.GoStruct, primaryKey string) error {
-	// todo: template := template.Must(template.New("help").Funcs(funcMap).Parse(templ))
-	// or template := template.ParseFiles(templateFile)
-	// both juse use template.Execute
-	templateFile := "data.template"
-	if *specs.Template != "" {
-		templateFile = *specs.Template
+	var parser func() (*template.Template, error)
+
+	if *specs.Template == "" {
+		parser = func() (*template.Template, error) { return template.New("").Parse(DefaultStoreTemplate) }
+	} else {
+		parser = func() (*template.Template, error) { return template.ParseFiles(*specs.Template) }
+	}
+
+	tmpl, err := parser()
+	if err != nil {
+		return err
 	}
 
 	outputFile := os.Stdout
@@ -130,20 +132,162 @@ func writeDataFile(specs Specs, target *parser.GoStruct, primaryKey string) erro
 		outputFile = out
 	}
 
-	template, err := template.ParseFiles(templateFile)
-	if err != nil {
-		return err
+	pkg := target.File.Package
+	if *specs.Package != "" {
+		pkg = *specs.Package
 	}
 
 	context := TemplateContext{
-		Package:    target.File.Package,
+		Package:    pkg,
 		Type:       target.Name,
 		PrimaryKey: primaryKey,
 	}
 
-	if err := template.Execute(outputFile, context); err != nil {
+	if err := tmpl.Execute(outputFile, context); err != nil {
 		return err
 	}
 
 	return outputFile.Close()
 }
+
+const DefaultStoreTemplate = `package {{ .Package }}
+
+import (
+    "encoding/json"
+    "github.com/zpatrick/go-sdata/container"
+)
+
+type {{ .Type }}Store struct {
+    container container.Container
+    table     string
+}
+
+func New{{ .Type }}Store(container container.Container) *{{ .Type }}Store {
+    return &{{ .Type }}Store{
+        container: container,
+        table: "{{ .Package }}_{{ .Type }}",
+    }
+}
+
+func (this *{{ .Type }}Store) Init() error {
+    return this.container.Init(this.table)
+}
+
+type {{ .Type }}StoreCreate struct {
+    *{{ .Type }}Store
+    data *{{ .Type }}
+}
+
+func (this *{{ .Type }}Store) Create(data *{{ .Type }}) *{{ .Type }}StoreCreate {
+    return &{{ .Type }}StoreCreate{
+        {{ .Type }}Store: this,
+        data:       data,
+    }
+}
+
+func (this *{{ .Type }}StoreCreate) Execute() error {
+    bytes, err := json.Marshal(this.data)
+    if err != nil {
+        return err
+    }
+
+    return this.container.Insert(this.table, this.data.ID, bytes)
+}
+
+type {{ .Type }}StoreSelect struct {
+    *{{ .Type }}Store
+    query  string
+    filter {{ .Type }}Filter
+    all    bool
+}
+
+func (this *{{ .Type }}Store) Select(query string) *{{ .Type }}StoreSelect {
+    return &{{ .Type }}StoreSelect{
+        {{ .Type }}Store: this,
+        query:      query,
+    }
+}
+
+func (this *{{ .Type }}Store) SelectAll() *{{ .Type }}StoreSelect {
+    return &{{ .Type }}StoreSelect{
+        {{ .Type }}Store: this,
+        all:        true,
+    }
+}
+
+type {{ .Type }}Filter func(*{{ .Type }}) bool
+
+func (this *{{ .Type }}StoreSelect) Where(filter {{ .Type }}Filter) *{{ .Type }}StoreSelect {
+    this.filter = filter
+    return this
+}
+
+func (this *{{ .Type }}StoreSelect) Execute() ([]*{{ .Type }}, error) {
+    var query func() (map[string][]byte, error)
+
+    if this.all {
+        query = func() (map[string][]byte, error) { return this.container.SelectAll(this.table) }
+    } else {
+        query = func() (map[string][]byte, error) { return this.container.Select(this.table, this.query) }
+    }
+
+    data, err := query()
+    if err != nil {
+        return nil, err
+    }
+
+    results := []*{{ .Type }}{}
+    for _, d := range data {
+        var value *{{ .Type }}
+
+        if err := json.Unmarshal(d, &value); err != nil {
+            return nil, err
+        }
+
+		if this.filter != nil && this.filter(value) {
+			results = append(results, value)
+		}
+    }
+
+    return results, nil
+}
+
+type {{ .Type }}StoreSelectFirst struct {
+    *{{ .Type }}StoreSelect
+}
+
+func (this *{{ .Type }}StoreSelect) FirstOrNil() *{{ .Type }}StoreSelectFirst {
+    return &{{ .Type }}StoreSelectFirst{
+        {{ .Type }}StoreSelect: this,
+    }
+}
+
+func (this *{{ .Type }}StoreSelectFirst) Execute() (*{{ .Type }}, error) {
+    results, err := this.{{ .Type }}StoreSelect.Execute()
+    if err != nil {
+        return nil, err
+    }
+
+    if len(results) > 0 {
+        return results[0], nil
+    }
+
+    return nil, nil
+}
+
+type {{ .Type }}StoreDelete struct {
+    *{{ .Type }}Store
+    key string
+}
+
+func (this *{{ .Type }}Store) Delete(key string) *{{ .Type }}StoreDelete {
+    return &{{ .Type }}StoreDelete{
+        {{ .Type }}Store: this,
+        key:        key,
+    }
+}
+
+func (this *{{ .Type }}StoreDelete) Execute() error {
+    return this.container.Delete(this.table, this.key)
+}
+`

@@ -1,4 +1,4 @@
-package store
+package container
 
 import (
 	"encoding/json"
@@ -8,19 +8,19 @@ import (
 	"sync"
 )
 
-type FileStore struct {
+type FileContainer struct {
 	path  string
 	mutex *sync.Mutex
 }
 
-func NewFileStore(path string, mutex *sync.Mutex) *FileStore {
-	return &FileStore{
+func NewFileContainer(path string, mutex *sync.Mutex) *FileContainer {
+	return &FileContainer{
 		path:  path,
 		mutex: mutex,
 	}
 }
 
-func (this *FileStore) Init(tableID string) error {
+func (this *FileContainer) Init(tableID string) error {
 	this.mutex.Lock()
 	defer this.mutex.Unlock()
 
@@ -44,7 +44,11 @@ func (this *FileStore) Init(tableID string) error {
 	return this.setTables(tables)
 }
 
-func (this *FileStore) Select(tableID string) (map[string][]byte, error) {
+func (this *FileContainer) Select(tableID, query string) (map[string][]byte, error) {
+	return nil, fmt.Errorf("Select is not implemented for FileContainer!")
+}
+
+func (this *FileContainer) SelectAll(tableID string) (map[string][]byte, error) {
 	this.mutex.Lock()
 	defer this.mutex.Unlock()
 
@@ -56,7 +60,7 @@ func (this *FileStore) Select(tableID string) (map[string][]byte, error) {
 	return tables[tableID], nil
 }
 
-func (this *FileStore) Insert(tableID, key string, entry []byte) error {
+func (this *FileContainer) Insert(tableID, key string, entry []byte) error {
 	this.mutex.Lock()
 	defer this.mutex.Unlock()
 
@@ -74,7 +78,7 @@ func (this *FileStore) Insert(tableID, key string, entry []byte) error {
 	return this.setTables(tables)
 }
 
-func (this *FileStore) Delete(tableID, key string) error {
+func (this *FileContainer) Delete(tableID, key string) error {
 	this.mutex.Lock()
 	defer this.mutex.Unlock()
 
@@ -90,7 +94,7 @@ func (this *FileStore) Delete(tableID, key string) error {
 	return this.setTables(tables)
 }
 
-func (this *FileStore) getTables(tableID string) (map[string]map[string][]byte, error) {
+func (this *FileContainer) getTables(tableID string) (map[string]map[string][]byte, error) {
 	bytes, err := ioutil.ReadFile(this.path)
 	if err != nil {
 		return nil, err
@@ -104,7 +108,7 @@ func (this *FileStore) getTables(tableID string) (map[string]map[string][]byte, 
 	return tables, nil
 }
 
-func (this *FileStore) setTables(tables map[string]map[string][]byte) error {
+func (this *FileContainer) setTables(tables map[string]map[string][]byte) error {
 	bytes, err := json.MarshalIndent(tables, "", "    ")
 	if err != nil {
 		return nil
