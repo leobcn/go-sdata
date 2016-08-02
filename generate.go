@@ -137,6 +137,8 @@ func writeDataFile(specs Specs, target *parser.GoStruct, primaryKey string) erro
 		pkg = *specs.Package
 	}
 
+	// todo: if *specs.Package != to source struct package, type should be <source_struct>.<target.Name>,
+	// and we should import that file
 	context := TemplateContext{
 		Package:    pkg,
 		Type:       target.Name,
@@ -152,9 +154,12 @@ func writeDataFile(specs Specs, target *parser.GoStruct, primaryKey string) erro
 
 const DefaultStoreTemplate = `package {{ .Package }}
 
+// todo: message like "THIS PACKAGE WAS GENERATED ... DO NOT EDIT!""
+
 import (
     "encoding/json"
     "github.com/zpatrick/go-sdata/container"
+    // todo: conditionally import source struct
 )
 
 type {{ .Type }}Store struct {
