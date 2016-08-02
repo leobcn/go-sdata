@@ -6,14 +6,12 @@ import (
 	"github.com/zpatrick/go-parser"
 	"log"
 	"os"
-	"strings"
 	"text/template"
 )
 
 type Specs struct {
 	Path     *string
 	Struct   *string
-	Output   *string
 	Package  *string
 	Template *string
 }
@@ -31,11 +29,10 @@ func main() {
 	app := cli.App("sdata", "Data persistance made simple")
 	Specs.Path = app.StringArg("PATH", "", "Path to the source file")
 	Specs.Struct = app.StringArg("STRUCT", "", "Name of the source struct")
-	Specs.Output = app.StringOpt("o output", "stdout", "Path to the destination file")
 	Specs.Package = app.StringOpt("p package", "", "Package name for the destination file")
 	Specs.Template = app.StringOpt("t template", "", "Path to the template file")
 
-	app.Spec = "PATH STRUCT [--output] [--package] [--template]"
+	app.Spec = "PATH STRUCT [--package] [--template]"
 
 	app.Action = func() {
 		if err := Generate(Specs); err != nil {
@@ -83,16 +80,14 @@ func Generate(specs Specs) error {
 
 func findPrimaryKey(target *parser.GoStruct) (*parser.GoField, error) {
 	fields := []*parser.GoField{}
-
 	for _, field := range target.Fields {
 		if field.Tag == nil {
 			continue
 		}
 
-		// if tag := field.Tag.Get("data"); tag == "primary_key" {
-		if strings.Contains(field.Tag.Value, "data:\"primary_key\"") {
+		if tag := field.Tag.Get("data"); tag == "primary_key" {
 			if field.Type != "string" {
-				return nil, fmt.Errorf("The primary key field must be of type 'string'")
+				return nil, fmt.Errorf("The primary_key field must be of type 'string'")
 			}
 
 			fields = append(fields, field)
@@ -123,24 +118,14 @@ func writeDataFile(specs Specs, target *parser.GoStruct, primaryKey string) erro
 		return err
 	}
 
-	outputFile := os.Stdout
-	if *specs.Output != "stdout" {
-		out, err := os.OpenFile(*specs.Output, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0666)
-		if err != nil {
-			return err
-		}
-
-		outputFile = out
-	}
-
 	outputPackage := target.File.Package
 	if *specs.Package != "" {
 		outputPackage = *specs.Package
 	}
 
-	var typeImport string
-
+	typeImport := ""
 	structType := target.Name
+
 	if outputPackage != target.File.Package {
 		structType = fmt.Sprintf("%s.%s", target.File.Package, target.Name)
 
@@ -150,11 +135,8 @@ func writeDataFile(specs Specs, target *parser.GoStruct, primaryKey string) erro
 		}
 
 		typeImport = path
-		//imports = append(imports, target.File.Package)
 	}
 
-	// todo: if *specs.Package != to source struct package, type should be <source_struct>.<target.Name>,
-	// and we should import that file
 	context := TemplateContext{
 		Package:    outputPackage,
 		Type:       structType,
@@ -163,11 +145,11 @@ func writeDataFile(specs Specs, target *parser.GoStruct, primaryKey string) erro
 		TypeImport: typeImport,
 	}
 
-	if err := tmpl.Execute(outputFile, context); err != nil {
+	if err := tmpl.Execute(os.Stdout, context); err != nil {
 		return err
 	}
 
-	return outputFile.Close()
+	return nil
 }
 
 const DefaultStoreTemplate = `package {{ .Package }}
