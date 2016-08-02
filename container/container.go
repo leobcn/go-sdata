@@ -5,5 +5,5 @@ type Container interface {
 	SelectAll(table string) (map[string][]byte, error)
 	Select(table, query string) (map[string][]byte, error)
 	Insert(table, key string, data []byte) error
-	Delete(table, key string) error
+	Delete(table, key string) (bool, error)
 }

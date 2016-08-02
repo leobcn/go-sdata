@@ -165,7 +165,7 @@ type {{ .Type }}Store struct {
 func New{{ .Type }}Store(container container.Container) *{{ .Type }}Store {
     return &{{ .Type }}Store{
         container: container,
-        table: "{{ .Package }}_{{ .Type }}",
+        table: "{{ .Package }}.{{ .Type }}",
     }
 }
 
@@ -173,19 +173,19 @@ func (this *{{ .Type }}Store) Init() error {
     return this.container.Init(this.table)
 }
 
-type {{ .Type }}StoreCreate struct {
+type {{ .Type }}StoreInsert struct {
     *{{ .Type }}Store
     data *{{ .Type }}
 }
 
-func (this *{{ .Type }}Store) Create(data *{{ .Type }}) *{{ .Type }}StoreCreate {
-    return &{{ .Type }}StoreCreate{
+func (this *{{ .Type }}Store) Insert(data *{{ .Type }}) *{{ .Type }}StoreInsert {
+    return &{{ .Type }}StoreInsert{
         {{ .Type }}Store: this,
         data:       data,
     }
 }
 
-func (this *{{ .Type }}StoreCreate) Execute() error {
+func (this *{{ .Type }}StoreInsert) Execute() error {
     bytes, err := json.Marshal(this.data)
     if err != nil {
         return err
@@ -244,7 +244,7 @@ func (this *{{ .Type }}StoreSelect) Execute() ([]*{{ .Type }}, error) {
             return nil, err
         }
 
-		if this.filter != nil && this.filter(value) {
+		if this.filter == nil || this.filter(value) {
 			results = append(results, value)
 		}
     }
@@ -287,7 +287,7 @@ func (this *{{ .Type }}Store) Delete(key string) *{{ .Type }}StoreDelete {
     }
 }
 
-func (this *{{ .Type }}StoreDelete) Execute() error {
+func (this *{{ .Type }}StoreDelete) Execute() (bool, error) {
     return this.container.Delete(this.table, this.key)
 }
 `

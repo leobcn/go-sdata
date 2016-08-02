@@ -14,6 +14,10 @@ type FileContainer struct {
 }
 
 func NewFileContainer(path string, mutex *sync.Mutex) *FileContainer {
+	if mutex == nil {
+		mutex = &sync.Mutex{}
+	}
+
 	return &FileContainer{
 		path:  path,
 		mutex: mutex,
@@ -31,14 +35,6 @@ func (this *FileContainer) Init(tableID string) error {
 	tables, err := this.getTables(tableID)
 	if err != nil {
 		return err
-	}
-
-	if tables == nil {
-		tables = map[string]map[string][]byte{}
-	}
-
-	if _, ok := tables[tableID]; !ok {
-		tables[tableID] = map[string][]byte{}
 	}
 
 	return this.setTables(tables)
@@ -78,20 +74,21 @@ func (this *FileContainer) Insert(tableID, key string, entry []byte) error {
 	return this.setTables(tables)
 }
 
-func (this *FileContainer) Delete(tableID, key string) error {
+func (this *FileContainer) Delete(tableID, key string) (bool, error) {
 	this.mutex.Lock()
 	defer this.mutex.Unlock()
 
 	tables, err := this.getTables(tableID)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	if _, exists := tables[tableID][key]; exists {
-		delete(tables[tableID], key)
+	if _, exists := tables[tableID][key]; !exists {
+		return false, nil
 	}
 
-	return this.setTables(tables)
+	delete(tables[tableID], key)
+	return true, this.setTables(tables)
 }
 
 func (this *FileContainer) getTables(tableID string) (map[string]map[string][]byte, error) {
@@ -103,6 +100,14 @@ func (this *FileContainer) getTables(tableID string) (map[string]map[string][]by
 	var tables map[string]map[string][]byte
 	if err := json.Unmarshal(bytes, &tables); err != nil {
 		return nil, err
+	}
+
+	if tables == nil {
+		tables = map[string]map[string][]byte{}
+	}
+
+	if _, ok := tables[tableID]; !ok {
+		tables[tableID] = map[string][]byte{}
 	}
 
 	return tables, nil
