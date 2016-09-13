@@ -60,10 +60,6 @@ func (this *FileContainer) Init(tableID string) error {
 	return this.setTables(this.path, tables)
 }
 
-func (this *FileContainer) Select(tableID, query string) (map[string][]byte, error) {
-	return nil, fmt.Errorf("Select is not implemented for FileContainer!")
-}
-
 func (this *FileContainer) SelectAll(tableID string) (map[string][]byte, error) {
 	this.mutex.Lock()
 	defer this.mutex.Unlock()

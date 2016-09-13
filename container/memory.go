@@ -28,13 +28,6 @@ func (this *MemoryContainer) Init(tableID string) error {
 	return nil
 }
 
-func (this *MemoryContainer) Select(tableID, query string) (map[string][]byte, error) {
-	this.mutex.Lock()
-	defer this.mutex.Unlock()
-
-	return nil, fmt.Errorf("Select is not implemented for MemoryContainer!")
-}
-
 func (this *MemoryContainer) SelectAll(tableID string) (map[string][]byte, error) {
 	this.mutex.Lock()
 	defer this.mutex.Unlock()

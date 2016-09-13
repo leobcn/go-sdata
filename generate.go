@@ -199,44 +199,26 @@ func (this *{{ .Name }}StoreInsert) Execute() error {
     return this.container.Insert(this.table, this.data.ID, bytes)
 }
 
-type {{ .Name }}StoreSelect struct {
+type {{ .Name }}StoreSelectAll struct {
     *{{ .Name }}Store
-    query  string
     filter {{ .Name }}Filter
-    all    bool
 }
 
-func (this *{{ .Name }}Store) Select(query string) *{{ .Name }}StoreSelect {
-    return &{{ .Name }}StoreSelect{
+func (this *{{ .Name }}Store) SelectAll() *{{ .Name }}StoreSelectAll {
+    return &{{ .Name }}StoreSelectAll{
         {{ .Name }}Store: this,
-        query:      query,
-    }
-}
-
-func (this *{{ .Name }}Store) SelectAll() *{{ .Name }}StoreSelect {
-    return &{{ .Name }}StoreSelect{
-        {{ .Name }}Store: this,
-        all:        true,
     }
 }
 
 type {{ .Name }}Filter func(*{{ .Type }}) bool
 
-func (this *{{ .Name }}StoreSelect) Where(filter {{ .Name }}Filter) *{{ .Name }}StoreSelect {
+func (this *{{ .Name }}StoreSelectAll) Where(filter {{ .Name }}Filter) *{{ .Name }}StoreSelectAll {
     this.filter = filter
     return this
 }
 
-func (this *{{ .Name }}StoreSelect) Execute() ([]*{{ .Type }}, error) {
-    var query func() (map[string][]byte, error)
-
-    if this.all {
-        query = func() (map[string][]byte, error) { return this.container.SelectAll(this.table) }
-    } else {
-        query = func() (map[string][]byte, error) { return this.container.Select(this.table, this.query) }
-    }
-
-    data, err := query()
+func (this *{{ .Name }}StoreSelectAll) Execute() ([]*{{ .Type }}, error) {
+    data, err :=  this.container.SelectAll(this.table)
     if err != nil {
         return nil, err
     }
@@ -258,17 +240,17 @@ func (this *{{ .Name }}StoreSelect) Execute() ([]*{{ .Type }}, error) {
 }
 
 type {{ .Name }}StoreSelectFirst struct {
-    *{{ .Name }}StoreSelect
+    *{{ .Name }}StoreSelectAll
 }
 
-func (this *{{ .Name }}StoreSelect) FirstOrNil() *{{ .Name }}StoreSelectFirst {
-    return &{{ .Name }}StoreSelectFirst{
-        {{ .Name }}StoreSelect: this,
+func (this *{{ .Name }}StoreSelectAll) FirstOrNil() *{{ .Name }}StoreSelectFirst {
+    return &{{ .Name }}StoreSelectAll{
+        {{ .Name }}StoreSelectAll: this,
     }
 }
 
 func (this *{{ .Name }}StoreSelectFirst) Execute() (*{{ .Type }}, error) {
-    results, err := this.{{ .Name }}StoreSelect.Execute()
+    results, err := this.{{ .Name }}StoreSelectAll.Execute()
     if err != nil {
         return nil, err
     }
