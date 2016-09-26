@@ -64,11 +64,10 @@ Options:
 ```
 
 See the example [Makefile](https://github.com/zpatrick/go-sdata/blob/master/example/Makefile) for reference. 
-// All data passed to/from containers should be json-encoded []slice d
 
 #### Containers
 Containers are used to store and retrieve your data. 
-They implement the [Container](#) interface and can be swapped out as necessary.
+They implement the [Container](https://godoc.org/github.com/zpatrick/go-sdata/container#Container) interface and can be swapped out as necessary.
 The current containers are:
 * [StringFileContainer](https://godoc.org/github.com/zpatrick/go-sdata/container#NewStringFileContainer) - Stores data in a human-readable JSON file 
 * [ByteFileContainer](https://godoc.org/github.com/zpatrick/go-sdata/container#NewByteFileContainer) - Stores data in a byte-formatted JSON file
@@ -132,4 +131,14 @@ if err != nil {
 ```
 
 # Caveats
+Go-sdata works under the following constraints:
+* The struct being stored has a string primary key field (denoted by adding the field tag `"data:primary_key"`)
+* The struct being stored can be marshalled/unmarshalled with the [JSON](https://golang.org/pkg/encoding/json) package
+* The container used to store/retrieve data implements the following operations:
+  * SelectAll()
+  * Delete(primary_key)
+  * Insert(primary_key, data)
 
+Note that the container is only required to implement `SelectAll()`. 
+As a result, any select operation is extremely expensive. 
+This is why I only recommend using go-sdata for proof-of-concept and other small applications.
