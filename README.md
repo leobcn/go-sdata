@@ -1,15 +1,15 @@
 # Go Simple Data
-The `go-sdata` package uses code generation to quickly implement a generic data persistance layer for your go applications.
+The `go-sdata` package uses code generation to quickly implement a data store for your go applications.
 
 # Installation
 ```
 go install github.com/zpatrick/go-sdata
 ```
 # Motivation
-When building a proof-of-concept, a small tool, or something for fun - I often find myself getting bogged down when I need to write a data persistance layer. 
-In these instances, I care more about how quickly I can get my application up and running than I do building  some high-performance data layer. 
+When building a proof-of-concept, a small tool, or something for fun - I often find myself getting bogged down when I need to write a data persistence layer. 
+In these instances, I care more about how quickly I can get my application up and running than I do building  some high-performance data store. 
 
-Go-sdata provides you with a simple, readable, data logic layer: 
+Go-sdata provides you with a simple, readable, data store: 
 ```
 package main
 
@@ -18,6 +18,11 @@ import (
         "github.com/zpatrick/go-sdata/example/stores"
         "github.com/zpatrick/go-sdata/container"
 )
+
+type User struct {
+	ID string `data:"primary_key"`
+	Name string
+}
 
 func main() {
         fileContainer := container.NewStringFileContainer("users.json", nil)
@@ -38,10 +43,11 @@ func main() {
 
 **Be Warned!** Go-sdata is **not** meant for high performance applications. 
 As stated above, it is best suited for proof-of-concepts and other small applications. 
+Please see the [Caveats](#caveats) section for more details.
 
 # Usage
 Go-sdata has 2 parts:
-* A command line tool that generates a data persistance layer
+* A command line tool that generates a data store
 * A `containers` package that is used to store/retrieve data
 
 #### Command Line 
@@ -57,22 +63,22 @@ Options:
   -t, --template=""   Path to the template file
 ```
 
-See the example [Makefile](#) for reference. 
+See the example [Makefile](https://github.com/zpatrick/go-sdata/blob/master/example/Makefile) for reference. 
+// All data passed to/from containers should be json-encoded []slice d
 
 #### Containers
 Containers are used to store and retrieve your data. 
 They implement the [Container](#) interface and can be swapped out as necessary.
 The current containers are:
-* [StringFileContainer](#) - stores data in a file in human-readable json format 
-* [ByteFileContainer](#) - stores data in a file in byte format (has better performance than StringFileContainer)
-* [MemoryContainer](#) - stores data in-memory during program execution (useful for testing)
+* [StringFileContainer](https://godoc.org/github.com/zpatrick/go-sdata/container#NewStringFileContainer) - Stores data in a human-readable JSON file 
+* [ByteFileContainer](https://godoc.org/github.com/zpatrick/go-sdata/container#NewByteFileContainer) - Stores data in a byte-formatted JSON file
+* [MemoryContainer](https://godoc.org/github.com/zpatrick/go-sdata/container#NewMemoryContainer) - Stores data in-memory during program execution (useful for testing)
 
-#### Examples
-All of these examples can be seen in the [Example](#) application. 
-The `<type>` references in these examples refer to the type that the data store was built from.
-Stores generated The generated data layer has the following functions:
+#### Functions
+Concrete examples of the following functions can be seen in the [Example](https://github.com/zpatrick/go-sdata/tree/master/example) application. 
+Since the generated data store is based off of some unknown type, the `<type>` in these examples is used as a placeholder.
 
-**Init** - Initializes the data logic and container layer.
+**Init** - Initializes the data store and container layer.
 ```
 if err := store.Init(); err != nil {
     log.Fatal(err)
@@ -124,3 +130,6 @@ if err != nil {
     log.Fatal(err)
 }
 ```
+
+# Caveats
+
