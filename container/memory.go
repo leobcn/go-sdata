@@ -5,6 +5,7 @@ import (
 	"sync"
 )
 
+// MemoryContainer data in-memory during program execution
 type MemoryContainer struct {
 	Tables map[string]map[string][]byte
 	mutex  *sync.Mutex

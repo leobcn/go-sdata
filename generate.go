@@ -26,7 +26,7 @@ type TemplateContext struct {
 
 func main() {
 	Specs := Specs{}
-	app := cli.App("sdata", "Data persistance made simple")
+	app := cli.App("go-sdata", "Data persistance made simple")
 	Specs.Path = app.StringArg("PATH", "", "Path to the source file")
 	Specs.Struct = app.StringArg("STRUCT", "", "Name of the source struct")
 	Specs.Package = app.StringOpt("p package", "", "Package name for the destination file")
@@ -105,15 +105,15 @@ func findPrimaryKey(target *parser.GoStruct) (*parser.GoField, error) {
 }
 
 func writeDataFile(specs Specs, target *parser.GoStruct, primaryKey string) error {
-	var parser func() (*template.Template, error)
+	var parse func() (*template.Template, error)
 
 	if *specs.Template == "" {
-		parser = func() (*template.Template, error) { return template.New("").Parse(DefaultStoreTemplate) }
+		parse = func() (*template.Template, error) { return template.New("").Parse(DefaultStoreTemplate) }
 	} else {
-		parser = func() (*template.Template, error) { return template.ParseFiles(*specs.Template) }
+		parse = func() (*template.Template, error) { return template.ParseFiles(*specs.Template) }
 	}
 
-	tmpl, err := parser()
+	tmpl, err := parse()
 	if err != nil {
 		return err
 	}
@@ -244,7 +244,7 @@ type {{ .Name }}StoreSelectFirst struct {
 }
 
 func (this *{{ .Name }}StoreSelectAll) FirstOrNil() *{{ .Name }}StoreSelectFirst {
-    return &{{ .Name }}StoreSelectAll{
+    return &{{ .Name }}StoreSelectFirst{
         {{ .Name }}StoreSelectAll: this,
     }
 }

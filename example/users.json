@@ -1,0 +1,19 @@
+{
+    "models.User": {
+        "1": {
+            "Age": 40,
+            "ID": "1",
+            "Name": "John"
+        },
+        "2": {
+            "Age": 28,
+            "ID": "2",
+            "Name": "Jane"
+        },
+        "4": {
+            "Age": 9,
+            "ID": "4",
+            "Name": "Susan"
+        }
+    }
+}

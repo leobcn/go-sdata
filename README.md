@@ -1,47 +1,126 @@
 # Go Simple Data
-The `go-sdata` package is used to quickly implement data persistance for your go applications.
+The `go-sdata` package uses code generation to quickly implement a generic data persistance layer for your go applications.
 
-# Motivation
-I often find myself spending way too much time implementing some crude form of data persistance in small go applications. The keyword here is _small_: when I'm building a proof of concept, a small tool, or something for fun - I care about how quickly I can get my code working a hell of a lot more than the performance of storing/retriveing data (especially when I know the data sets are never going to be very large).
-
-##### It's easy to get code running
-This package uses code generation to generate 
-
-##### It's readable, generic, data logic layer
+# Installation
 ```
-type User struct{
-    Name string
-    Age int
+go install github.com/zpatrick/go-sdata
+```
+# Motivation
+When building a proof-of-concept, a small tool, or something for fun - I often find myself getting bogged down when I need to write a data persistance layer. 
+In these instances, I care more about how quickly I can get my application up and running than I do building  some high-performance data layer. 
+
+Go-sdata provides you with a simple, readable, data logic layer: 
+```
+package main
+
+import (
+        "log"
+        "github.com/zpatrick/go-sdata/example/stores"
+        "github.com/zpatrick/go-sdata/container"
+)
+
+func main() {
+        fileContainer := container.NewStringFileContainer("users.json", nil)
+        userStore := stores.NewUserStore(fileContainer)
+
+        if err := userStore.Init(); err != nil {
+                log.Fatal(err)
+        }
+
+        users, err := userStore.SelectAll().Execute()
+        if err != nil {
+                log.Fatal(err)
+        }
+
+        log.Println(users)
 }
 ```
 
-Get users who are 27 using sql package 
-(this based off of the official documentation [example](https://golang.org/pkg/database/sql/#example_DB_Query)):
+**Be Warned!** Go-sdata is **not** meant for high performance applications. 
+As stated above, it is best suited for proof-of-concepts and other small applications. 
+
+# Usage
+Go-sdata has 2 parts:
+* A command line tool that generates a data persistance layer
+* A `containers` package that is used to store/retrieve data
+
+#### Command Line 
 ```
-    age := 27
-    rows, err := db.Query("SELECT name FROM users WHERE age=?", age)
-    if err != nil {
-            log.Fatal(err)
-    }
-    defer rows.Close()
-    
-    users := []User{}
-    for rows.Next() {
-            var name string
-            if err := rows.Scan(&name); err != nil {
-                    log.Fatal(err)
-            }
-            users = append(users, User{Name: name, Age: age})
-    }
-    if err := rows.Err(); err != nil {
-            log.Fatal(err)
-    }
-    
-    return users
+Usage: go-sdata PATH STRUCT [--package] [--template]
+
+Arguments:
+  PATH      Path to the source file
+  STRUCT    Name of the source struct
+
+Options:
+  -p, --package=""    Package name for the destination file
+  -t, --template=""   Path to the template file
 ```
 
-Same query using `go-sdata`:
+See the example [Makefile](#) for reference. 
+
+#### Containers
+Containers are used to store and retrieve your data. 
+They implement the [Container](#) interface and can be swapped out as necessary.
+The current containers are:
+* [StringFileContainer](#) - stores data in a file in human-readable json format 
+* [ByteFileContainer](#) - stores data in a file in byte format (has better performance than StringFileContainer)
+* [MemoryContainer](#) - stores data in-memory during program execution (useful for testing)
+
+#### Examples
+All of these examples can be seen in the [Example](#) application. 
+The `<type>` references in these examples refer to the type that the data store was built from.
+Stores generated The generated data layer has the following functions:
+
+**Init** - Initializes the data logic and container layer.
 ```
-users, err := userStore.Select().Where(func(u User) bool { return u.Age == 27 }).Execute()
+if err := store.Init(); err != nil {
+    log.Fatal(err)
+}
 ```
 
+**Insert** - Inserts a new` <type>` object. The `<type>` object's primary key must be unique or else an error will be thrown. 
+```
+if err := store.Insert(<type>).Execute(); err != nil {
+    log.Fatal(err)
+}
+```
+
+**Delete** - Deletes the object with the specified primary key. Returns a boolean if the object existed.
+```
+existed, err := store.Delete("primary_key").Execute()
+if err != nil {
+    log.Fatal(err)
+}
+
+if !existed {
+    log.Fatal("Item does not exist")
+}
+```
+
+**SelectAll** - Returns all objects in the store
+```
+objects, err := store.SelectAll().Execute()
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+**SelectAllWhere** - Runs a filter on the objects before returning. 
+This must be chained to a `SelectAll` query. 
+The filter should return `true` if the object should be included in the results. 
+```
+objects, err := store.SelectAll().Where(func(t <type>) bool {return true}).Execute()
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+**FirstOrNil** - Returns the first object returned, or nil if an empty slice was returned. 
+This must be chained to a `SelectAll` query. 
+```
+object, err := store.SelectAll().Where(func(t <type>) bool {return true}).FirstOrNil().Execute()
+if err != nil {
+    log.Fatal(err)
+}
+```

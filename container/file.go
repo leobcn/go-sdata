@@ -8,6 +8,7 @@ import (
 	"sync"
 )
 
+// A FileContainer stores data in a JSON file
 type FileContainer struct {
 	path      string
 	mutex     *sync.Mutex
@@ -15,6 +16,9 @@ type FileContainer struct {
 	setTables func(path string, tables map[string]map[string][]byte) error
 }
 
+// A ByteFileContainer stores data in a file in byte format
+// This has better performance than a StringFileContainer
+// If multiple stores are using the same container, they should share the same mutex object
 func NewByteFileContainer(path string, mutex *sync.Mutex) *FileContainer {
 	if mutex == nil {
 		mutex = &sync.Mutex{}
@@ -28,6 +32,8 @@ func NewByteFileContainer(path string, mutex *sync.Mutex) *FileContainer {
 	}
 }
 
+// A StringFileContainer stores data in human-readable format
+//  If multiple stores are using the same container, they should share the same mutex object
 func NewStringFileContainer(path string, mutex *sync.Mutex) *FileContainer {
 	if mutex == nil {
 		mutex = &sync.Mutex{}
